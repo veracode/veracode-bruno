@@ -24,14 +24,13 @@ If you have not does so, please follow these steps to generate the necessary API
 
 1. Install Bruno on your machine.
 2. Create a Collection.
-3. In the settings for the collection select the **Auth** tab, select **Digest Auth** from the dropdown, and click the save button.
-4. In the **Script** tab paste in the code from [bruno-pre-request-script.js](bruno-pre-request-script.js) and click the save button.
-5. Create a new **Environment** for the Veracode platform.
-6. Update the following variables as type *secret*
+3. In the **Script** tab paste in the code from [bruno-pre-request-script.js](bruno-pre-request-script.js) and click the save button.
+4. Create a new **Environment** for the Veracode platform.
+5. Update the following variables as type *secret*
   - *api_id* : (set to your Veracode API ID)
   - *api_key* : (set to your Veracode API Key)
-7. Be sure to save
-8. In the collection (left nav) add and save a new request. 
+6. Be sure to save
+7. In the collection (left nav) add and save a new request. 
    - GET 'https://api.veracode.com/api/authn/v2/users/self'
 
 

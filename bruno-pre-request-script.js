@@ -1,7 +1,44 @@
-/*jshint esversion: 6 */
+/*tested with bruno 2.3.0 */
+const crypto = require('crypto-js');
 
-var url = require('url');
-var crypto = require('crypto-js');
+/* Manual URL parsing function to replace url.parse() */
+function parseUrl(urlString) {
+  const match = urlString.match(/^(?:(https?:)\/\/)([^:\/\s]+):?(\d*)([^?\s]*)?(\?[^#]*)?(#.*)?$/);
+  if (!match) {
+    throw new Error('Invalid URL: ' + urlString);
+  }
+
+  const [, protocol, hostname, port, pathname = '', search = '', hash = ''] = match;
+  return {
+    protocol: protocol,
+    hostname: hostname,
+    port: port,
+    pathname: pathname,
+    search: search,
+    path: pathname + search,
+    hash: hash
+  };
+}
+
+/* Function to substitute Bruno variables */
+function substituteVariables(urlString) {
+  let substituted = urlString;
+  const variablePattern = /\{\{([^}]+)\}\}/g;
+  let match;
+
+  while ((match = variablePattern.exec(urlString)) !== null) {
+    const variableName = match[1];
+    const variableValue = bru.getEnvVar(variableName) || bru.getVar(variableName);
+
+    if (variableValue) {
+      substituted = substituted.replace(match[0], variableValue);
+    } else {
+      throw new Error(`Variable '${variableName}' not found in environment or collection variables`);
+    }
+  }
+
+  return substituted;
+}
 
 /* set Veracode API credentials in api_id and api_key in environment*/
 const id = bru.getEnvVar('api_id');
@@ -9,10 +46,9 @@ if (!id) {
   throw new Error("Environment does not have an 'api_id'. Please ensure you have configured a Veracode environment.");
 }
 const key = bru.getEnvVar('api_key');
-if (!id) {
+if (!key) {
   throw new Error("Environment does not have an 'api_key'. Please ensure you have configured a Veracode environment.");
 }
-
 const authorizationScheme = 'VERACODE-HMAC-SHA-256';
 const requestVersion = "vcode_request_version_1";
 const nonceSize = 16;
@@ -43,8 +79,7 @@ function removePrefixFromApiCredential(input) {
 function calculateVeracodeAuthHeader(httpMethod, requestUrl) {
   const formattedId = removePrefixFromApiCredential(id);
   const formattedKey = removePrefixFromApiCredential(key);
-
-  let parsedUrl = url.parse(requestUrl);
+  let parsedUrl = parseUrl(requestUrl);
   let data = `id=${formattedId}&host=${parsedUrl.hostname}&url=${parsedUrl.path}&method=${httpMethod}`;
   let dateStamp = Date.now().toString();
   let nonceBytes = newNonce();
@@ -53,12 +88,14 @@ function calculateVeracodeAuthHeader(httpMethod, requestUrl) {
   return authorizationScheme + " " + authorizationParam;
 }
 
-let runtimeUrl = req.getUrl().toString();
+// Get the raw URL and substitute variables manually
+const rawUrl = req.getUrl().toString();
+const substitutedUrl = substituteVariables(rawUrl);
 
-let hmac = calculateVeracodeAuthHeader(req.method, runtimeUrl);
-// bruno.setEnvVar('hmacAuthHeader', hmac);
+let hmac = calculateVeracodeAuthHeader(req.method, substitutedUrl);
+console.log('Raw URL:', rawUrl);
+console.log('Substituted URL:', substitutedUrl);
+console.log('HMAC:', hmac);
 
-req.setHeader(
-    "Authorization",
-    hmac
-);
+// Set the Authorization header
+req.setHeader("Authorization", hmac);
