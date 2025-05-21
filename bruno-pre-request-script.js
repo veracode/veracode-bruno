@@ -28,7 +28,12 @@ function substituteVariables(urlString) {
 
   while ((match = variablePattern.exec(urlString)) !== null) {
     const variableName = match[1];
-    const variableValue = bru.getEnvVar(variableName) || bru.getVar(variableName);
+    // Try in order of precedence (most specific to least specific)
+    let variableValue = bru.getRequestVar && bru.getRequestVar(variableName) ||
+        bru.getEnvVar(variableName) ||
+        bru.getCollectionVar && bru.getCollectionVar(variableName) ||
+        bru.getGlobalEnvVar(variableName) ||
+        bru.getVar(variableName);
 
     if (variableValue) {
       substituted = substituted.replace(match[0], variableValue);
