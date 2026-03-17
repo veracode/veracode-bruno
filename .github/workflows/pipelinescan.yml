@@ -91,7 +91,16 @@ jobs:
         pipeline-results-json: results.json
         output-results-sarif: veracode-results.sarif
         finding-rule-level: "4:3:0"
-    - uses: github/codeql-action/upload-sarif@v3
+
+    - name: Check for results
+      id: check_results_sarif
+      uses: andstor/file-existence-action@v1
+      with:
+        files: "veracode-results.sarif"
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v4  
+      if: steps.check_results_sarif.outputs.files_exists == 'true'  
       with:
     # Path to SARIF file relative to the root of the repository
         sarif_file: veracode-results.sarif     
