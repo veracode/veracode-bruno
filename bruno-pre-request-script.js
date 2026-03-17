@@ -45,6 +45,30 @@ function substituteVariables(urlString) {
   return substituted;
 }
 
+/* Function to substitute path parameters */
+function substitutePathParams(urlString) {
+  // Get path parameters from Bruno and convert array to object
+  const pathParamsArray = req.getPathParams();
+  const pathParamsMap = {};
+  if (pathParamsArray && Array.isArray(pathParamsArray)) {
+    pathParamsArray.forEach(param => {
+      if (param.name && param.value) {
+        pathParamsMap[param.name] = param.value;
+      }
+    });
+  }
+
+  // Substitute path parameters (:paramName)
+  const pathParamRegex = /:([a-zA-Z0-9_]+)/g;
+  return urlString.replace(pathParamRegex, (match, paramName) => {
+    if (pathParamsMap[paramName]) {
+      return pathParamsMap[paramName];
+    }
+    console.warn(`Warning: No value found for path parameter: ${paramName}`);
+    return match;
+  });
+}
+
 /* set Veracode API credentials in api_id and api_key in environment*/
 const id = bru.getEnvVar('api_id');
 if (!id) {
@@ -93,11 +117,19 @@ function calculateVeracodeAuthHeader(httpMethod, requestUrl) {
   return authorizationScheme + " " + authorizationParam;
 }
 
-// Get the raw URL and substitute variables manually
+// Get the raw URL
 const rawUrl = req.getUrl().toString();
-const substitutedUrl = substituteVariables(rawUrl);
 
+// Substitute {{variables}} first
+let substitutedUrl = substituteVariables(rawUrl);
+
+// Then substitute :pathParameters
+substitutedUrl = substitutePathParams(substitutedUrl);
+
+// Calculate HMAC with fully substituted URL
 let hmac = calculateVeracodeAuthHeader(req.method, substitutedUrl);
+
+// Debug logging
 console.log('Raw URL:', rawUrl);
 console.log('Substituted URL:', substitutedUrl);
 console.log('HMAC:', hmac);
