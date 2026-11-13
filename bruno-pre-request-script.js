@@ -69,15 +69,25 @@ function substitutePathParams(urlString) {
   });
 }
 
-/* set Veracode API credentials in api_id and api_key in environment*/
-const id = bru.getEnvVar('api_id');
+/* Resolve a credential from env var / secret-checkbox var, then process env, then secret manager */
+function getCredential(name) {
+  if (bru.hasEnvVar(name)) return bru.getEnvVar(name);
+  if (bru.hasGlobalEnvVar && bru.hasGlobalEnvVar(name)) return bru.getGlobalEnvVar(name);
+  return bru.getProcessEnv(name)
+    || (bru.getSecretVar && bru.getSecretVar(`veracode.${name}`))
+    || null;
+}
+
+/* get Veracode API credentials */
+const id = getCredential('api_id');
 if (!id) {
-  throw new Error("Environment does not have an 'api_id'. Please ensure you have configured a Veracode environment.");
+  throw new Error("No 'api_id' found in the environment, process env, or in the env secrets. Please ensure you have configured a Veracode environment.");
 }
-const key = bru.getEnvVar('api_key');
+const key = getCredential('api_key');
 if (!key) {
-  throw new Error("Environment does not have an 'api_key'. Please ensure you have configured a Veracode environment.");
+  throw new Error("No 'api_key' found in the environment, process env, or in the env secrets. Please ensure you have configured a Veracode environment.");
 }
+
 const authorizationScheme = 'VERACODE-HMAC-SHA-256';
 const requestVersion = "vcode_request_version_1";
 const nonceSize = 16;
