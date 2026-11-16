@@ -41,18 +41,16 @@ By default the script signs requests with HMAC (see above). To use an OAuth bear
 | Variable | Type | Value |
 |---|---|---|
 | *veracode_auth_type* | plain | `oauth` (`hmac` or unset keeps HMAC) |
-| *hostname* | plain | Veracode API base URL including the scheme, e.g. `https://api.veracode.com` |
 | *oauth_veracode_client_id* | *secret* | your OAuth client ID |
 | *oauth_veracode_client_secret* | *secret* | your OAuth client secret |
 
 `api_id` and `api_key` are not needed in `oauth` mode. The credentials are looked up in the same order as `api_id` and `api_key`: collection environment, global/workspace environment, process env, then secret manager.
 
 How it works:
-- The script requests a token from `{{hostname}}/api/authn/v2/oauth2/token` (`client_credentials` grant) and sends `Authorization: Bearer <token>`.
-- The token is cached in Bruno runtime variables (memory only) and reused until 60 seconds before it expires. It is fetched again if `hostname` or the client ID changes. If two environments share the same `hostname` and client ID but have different secrets, a token cached from one is reused for the other until it expires or Bruno restarts.
+- The base URL is taken from the request URL (for example `https://api.veracode.com`). The script requests a token from `<base URL>/api/authn/v2/oauth2/token` (`client_credentials` grant) and sends `Authorization: Bearer <token>`.
+- Your client ID and secret are only sent to `https` hosts on the default port that are under `veracode.com`, `veracode.eu` or `veracode.us`. A request to any other host stops with an error before any credential is read.
+- The token is cached in Bruno runtime variables (memory only) and reused until 60 seconds before it expires. There is one cache slot, so a request to a different base URL (for example `api.veracode.eu` after `api.veracode.com`) or a different client ID fetches a new token. If two environments use the same base URL and client ID but different secrets, a token cached from one is reused for the other until it expires or Bruno restarts.
 - If the token request fails, the request stops with an error. There is no fallback to HMAC.
-- The token is only sent to requests whose URL host matches `hostname`. Requests to other hosts stop with an error.
-
 
 
 ## License

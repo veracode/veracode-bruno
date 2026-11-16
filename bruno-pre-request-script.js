@@ -1,4 +1,4 @@
-/*tested with bruno 2.3.0 and 4.3.0 */
+/*tested with bruno 4.3.0 */
 const crypto = require('crypto-js');
 
 /* Manual URL parsing function to replace url.parse() */
@@ -137,30 +137,28 @@ const oauthExpiryMarginMs = 60 * 1000;
 const oauthCacheKeys = {
   token: 'veracode_oauth_access_token',
   expiresAt: 'veracode_oauth_expires_at',
-  hostname: 'veracode_oauth_cache_hostname',
+  baseUrl: 'veracode_oauth_cache_base_url',
   clientId: 'veracode_oauth_cache_client_id'
 };
 
-function hostKey(parsed) {
-  return `${parsed.hostname.toLowerCase()}:${parsed.port || '443'}`;
+/* Veracode API hosts that may receive the client credentials (the base URL comes from the request) */
+const oauthAllowedDomains = ['veracode.com', 'veracode.eu', 'veracode.us'];
+
+function isAllowedVeracodeHost(parsed) {
+  if (parsed.protocol !== 'https:' || (parsed.port && parsed.port !== '443')) return false;
+  const host = parsed.hostname.toLowerCase();
+  if (!/^[a-z0-9.-]+$/.test(host)) return false; // rejects user@host and other odd forms
+  return oauthAllowedDomains.some(domain => host === domain || host.endsWith('.' + domain));
 }
 
-/* Resolve and validate hostname, client id and client secret */
-function getOAuthConfig() {
-  const rawHostname = getCredential('hostname');
-  if (!rawHostname) {
-    throw new Error("No 'hostname' found in the environment. Set it to the Veracode API base URL, e.g. https://api.veracode.com");
+/* Derive the token base URL from the request URL and resolve the client id and secret */
+function getOAuthConfig(requestUrl) {
+  const parsed = parseUrl(requestUrl);
+  /* check the host before reading any credential so the secret can never be sent elsewhere */
+  if (!isAllowedVeracodeHost(parsed)) {
+    throw new Error(`OAuth: refusing to send credentials to '${parsed.protocol}//${parsed.hostname}${parsed.port ? ':' + parsed.port : ''}'. Allowed: ${oauthAllowedDomains.map(d => '*.' + d).join(', ')} over https`);
   }
-  const baseUrl = rawHostname.trim().replace(/\/+$/, '');
-  let parsed;
-  try {
-    parsed = parseUrl(baseUrl);
-  } catch (e) {
-    throw new Error(`'hostname' must be a base URL including the scheme, e.g. https://api.veracode.com`);
-  }
-  if (parsed.protocol !== 'https:') {
-    throw new Error("'hostname' must use https://");
-  }
+  const baseUrl = `${parsed.protocol}//${parsed.hostname.toLowerCase()}`;
   const clientId = getCredential('oauth_veracode_client_id');
   if (!clientId) {
     throw new Error("No 'oauth_veracode_client_id' found in the environment, process env, or in the env secrets.");
@@ -169,22 +167,14 @@ function getOAuthConfig() {
   if (!clientSecret) {
     throw new Error("No 'oauth_veracode_client_secret' found in the environment, process env, or in the env secrets.");
   }
-  return { baseUrl, parsed, clientId, clientSecret };
-}
-
-/* Never send the bearer token to a host other than the one the token was issued by */
-function assertSameHost(requestUrl, config) {
-  const requestParsed = parseUrl(requestUrl);
-  if (requestParsed.protocol !== 'https:' || hostKey(requestParsed) !== hostKey(config.parsed)) {
-    throw new Error(`OAuth bearer token can only be sent to ${config.parsed.protocol}//${hostKey(config.parsed)} (from 'hostname'), but the request is for ${requestParsed.protocol}//${hostKey(requestParsed)}`);
-  }
+  return { baseUrl, clientId, clientSecret };
 }
 
 function getCachedOAuthToken(config) {
   const token = bru.getVar(oauthCacheKeys.token);
   const expiresAt = Number(bru.getVar(oauthCacheKeys.expiresAt));
   if (!token || !Number.isFinite(expiresAt)) return null;
-  if (bru.getVar(oauthCacheKeys.hostname) !== config.baseUrl) return null;
+  if (bru.getVar(oauthCacheKeys.baseUrl) !== config.baseUrl) return null;
   if (bru.getVar(oauthCacheKeys.clientId) !== config.clientId) return null;
   if (Date.now() >= expiresAt - oauthExpiryMarginMs) return null;
   return token;
@@ -237,14 +227,13 @@ async function fetchOAuthToken(config) {
   /* cache only after the response is validated */
   bru.setVar(oauthCacheKeys.token, data.access_token);
   bru.setVar(oauthCacheKeys.expiresAt, String(Date.now() + expiresIn * 1000));
-  bru.setVar(oauthCacheKeys.hostname, config.baseUrl);
+  bru.setVar(oauthCacheKeys.baseUrl, config.baseUrl);
   bru.setVar(oauthCacheKeys.clientId, config.clientId);
   return data.access_token;
 }
 
 async function applyOAuthAuth() {
-  const config = getOAuthConfig();
-  assertSameHost(substituteVariables(req.getUrl().toString()), config);
+  const config = getOAuthConfig(substituteVariables(req.getUrl().toString()));
 
   let token = getCachedOAuthToken(config);
   if (token) {
