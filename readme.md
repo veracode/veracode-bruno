@@ -8,7 +8,7 @@
 
 ## Overview
 
-Using [Veracode APIs](https://docs.veracode.com/r/c_gettingstarted) with Bruno requires initial configuration to accommodate HMAC signing. Below are instructions for getting up and running with Veracode APIs in Bruno.
+Using [Veracode APIs](https://docs.veracode.com/r/c_gettingstarted) with Bruno requires initial configuration of either HMAC or OAuth credentials. Below are instructions for getting up and running with Veracode APIs in Bruno.
 
 ## Before You Begin
 
@@ -17,7 +17,7 @@ Using [Veracode APIs](https://docs.veracode.com/r/c_gettingstarted) with Bruno r
 If you have not does so, please follow these steps to generate the necessary API Token Credential to use with Bruno.
 
 1. [Generate API credentials](https://docs.veracode.com/r/t_create_api_creds) for your Veracode user.
-2. Store the credential information is  a safe place or as a [credential file](https://docs.veracode.com/r/c_configure_api_cred_file) for use with Veracode products.
+2. Store the credential information in a safe place or as a [credential file](https://docs.veracode.com/r/c_configure_api_cred_file) for use with Veracode products.
 
 
 ### Setup Bruno
